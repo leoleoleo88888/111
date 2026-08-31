@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MENA ICT Insight</title>
+<title>MENA ICT Insight - 中东中亚 ICT 洞察</title>
 <style>
-body{margin:0;background:#07111f;color:#eaf3ff;font-family:Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1100px;margin:auto;padding:30px}.card{background:#0d1b2e;border:1px solid #20334b;border-radius:18px;padding:24px;margin-bottom:18px}h1{font-size:48px}.tag{color:#62d9ff}.news{padding:14px;border-bottom:1px solid #20334b}.meta{color:#91a6bf;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}</style>
+body{margin:0;background:#07111f;color:#eaf3ff;font-family:Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1100px;margin:auto;padding:30px}.card{background:#0d1b2e;border:1px solid #20334b;border-radius:18px;padding:24px;margin-bottom:18px}h1{font-size:42px}.tag{color:#62d9ff}.news{padding:14px;border-bottom:1px solid #20334b}.meta{color:#91a6bf;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.time{color:#62d9ff;font-size:13px}
+</style>
 </head>
 <body>
 <div class="wrap">
-<div class="card"><div class="tag">MENA ICT INSIGHT</div><h1>中东中亚 ICT 洞察</h1><p>聚焦伊拉克、黎巴嫩、约旦及中亚数字基础设施、AI、云计算、5G、数据中心和卫星互联网。</p></div>
+<div class="card"><div class="tag">MENA ICT INSIGHT</div><h1>中东中亚 ICT 洞察</h1><p>聚焦伊拉克、黎巴嫩、约旦及中亚数字基础设施、AI、云计算、5G、数据中心和卫星互联网。</p><div class="time">Website update: 2026 ICT News Edition</div></div>
 <div class="card"><h2>最新 ICT 新闻动态</h2><div id="news">正在加载最新动态...</div></div>
 <div class="grid">
 <div class="card"><h2>区域重点</h2><p>🇮🇶 伊拉克：5G、FWA、光纤回传、卫星互联网机会。</p><p>🇱🇧 黎巴嫩：FTTH、ISP 重构、光纤基础设施。</p><p>🇯🇴 约旦：云、数据中心、数字政府。</p></div>
@@ -17,7 +18,7 @@ body{margin:0;background:#07111f;color:#eaf3ff;font-family:Arial,"Microsoft YaHe
 </div>
 </div>
 <script>
-fetch('news.json').then(r=>r.json()).then(data=>{
+fetch('news.json?v=20260901').then(r=>r.json()).then(data=>{
  let list=Array.isArray(data)?data:(data.news||[]);
  document.getElementById('news').innerHTML=list.map(n=>`<div class="news"><b>${n.title||n.name||'ICT动态'}</b><div class="meta">${n.region||''} ${n.date||''}</div><p>${n.summary||n.description||''}</p></div>`).join('');
 }).catch(()=>document.getElementById('news').innerHTML='新闻数据加载失败');
