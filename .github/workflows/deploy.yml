@@ -1,118 +1,32 @@
-name: Deploy to Tencent Cloud
+name: Deploy MENA ICT Insight Website
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate deployment secrets
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
-        run: |
-          set -euo pipefail
-          test -n "$SERVER_HOST"
-          test -n "$SERVER_USER"
-          test -n "$SERVER_SSH_KEY"
-          echo "Deployment secrets are configured."
-          echo "Target port: $SERVER_PORT"
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
-      - name: Deploy and repair Nginx
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          command_timeout: 5m
-          script_stop: true
-          script: |
-            set -euo pipefail
-            if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+          path: '.'
 
-            echo "== OS =="
-            uname -a
-            echo "== Update source =="
-            $SUDO mkdir -p /var/www/111
-            if [ ! -d /var/www/111/.git ]; then
-              $SUDO git clone https://github.com/leoleoleo88888/111.git /var/www/111
-            else
-              cd /var/www/111
-              $SUDO git fetch --prune origin main
-              $SUDO git reset --hard origin/main
-              $SUDO git clean -fd
-            fi
-
-            echo "== Install Nginx if missing =="
-            if ! command -v nginx >/dev/null 2>&1; then
-              if command -v apt-get >/dev/null 2>&1; then
-                $SUDO apt-get update
-                $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
-              elif command -v dnf >/dev/null 2>&1; then
-                $SUDO dnf install -y nginx
-              elif command -v yum >/dev/null 2>&1; then
-                $SUDO yum install -y nginx
-              else
-                echo "Unsupported package manager"; exit 1
-              fi
-            fi
-
-            echo "== Normalize permissions =="
-            $SUDO find /var/www/111 -type d -exec chmod 755 {} ;
-            $SUDO find /var/www/111 -type f -exec chmod 644 {} ;
-            $SUDO chmod 755 /var /var/www /var/www/111
-            $SUDO rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-            $SUDO rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
-
-            echo "== Write Nginx config =="
-            $SUDO tee /etc/nginx/conf.d/111.conf >/dev/null <<'NGINX'
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-    root /var/www/111;
-    index index.html;
-
-    location ~ /.git {
-        deny all;
-        return 404;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location = /healthz {
-        default_type text/plain;
-        return 200 "ok
-";
-    }
-}
-NGINX
-
-            echo "== Validate and restart Nginx =="
-            $SUDO nginx -t
-            $SUDO systemctl enable nginx
-            $SUDO systemctl restart nginx
-            sleep 1
-
-            echo "== Local health checks =="
-            $SUDO systemctl --no-pager --full status nginx || true
-            $SUDO ss -lntp | grep -E ':(80|443)[[:space:]]' || true
-            curl -fsS --max-time 10 http://127.0.0.1/healthz
-            curl -fsSI --max-time 10 http://127.0.0.1/
-            test -s /var/www/111/index.html
-            echo "== Deployment OK =="
-
-      - name: Summary
-        if: success()
-        run: echo "MENA ICT Insight deployed successfully."
+      - name: Deploy website
+        uses: actions/deploy-pages@v4
