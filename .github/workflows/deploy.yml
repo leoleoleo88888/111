@@ -36,8 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          printf '%s
-' "$SERVER_SSH_KEY" > /tmp/deploy_key
+          printf '%s\n' "$SERVER_SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
           echo "=== Local key diagnostics ==="
