@@ -81,6 +81,8 @@ jobs:
                 root /var/www/111;
                 index index.html;
 
+                location ~ /\\.git/ { deny all; return 404; }
+
                 location / {
                     try_files $uri $uri/ /index.html;
                 }
