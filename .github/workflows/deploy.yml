@@ -52,12 +52,13 @@ jobs:
               $SUDO git reset --hard origin/main
             fi
 
-            echo "=== Install Nginx if needed ==="
+            echo "=== Prepare /tmp and install Nginx if needed ==="
+            $SUDO chmod 1777 /tmp
             if command -v nginx >/dev/null 2>&1; then
               echo "Nginx already installed."
             elif command -v apt-get >/dev/null 2>&1; then
               $SUDO apt-get update
-              $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+              $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
             elif command -v dnf >/dev/null 2>&1; then
               $SUDO dnf install -y nginx
             elif command -v yum >/dev/null 2>&1; then
