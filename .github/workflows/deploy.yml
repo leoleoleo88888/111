@@ -17,53 +17,15 @@ jobs:
           SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
         run: |
           set -e
-          test -n "$SERVER_HOST" || { echo "ERROR: SERVER_HOST is empty or missing"; exit 1; }
-          test -n "$SERVER_USER" || { echo "ERROR: SERVER_USER is empty or missing"; exit 1; }
-          test -n "$SERVER_SSH_KEY" || { echo "ERROR: SERVER_SSH_KEY is empty or missing"; exit 1; }
+          test -n "$SERVER_HOST"
+          test -n "$SERVER_USER"
+          test -n "$SERVER_SSH_KEY"
           echo "SERVER_HOST: configured"
           echo "SERVER_USER: configured"
           echo "SERVER_PORT: $SERVER_PORT"
           echo "SERVER_SSH_KEY: configured"
-          echo "SSH key format: $(printf '%s' "$SERVER_SSH_KEY" | head -n 1)"
-          echo "Secret checks passed."
 
-      - name: Diagnose SSH authentication
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
-        run: |
-          set -euo pipefail
-          umask 077
-          printf '%s\n' "$SERVER_SSH_KEY" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-
-          echo "=== Local key diagnostics ==="
-          if ! ssh-keygen -y -f /tmp/deploy_key > /tmp/deploy_key.pub; then
-            echo "KEY_FORMAT_ERROR: SERVER_SSH_KEY is not a valid private SSH key."
-            echo "Check that SERVER_SSH_KEY contains the complete private key, including BEGIN/END lines."
-            exit 2
-          fi
-          echo "Private key is valid."
-          echo "Derived public key fingerprint:"
-          ssh-keygen -lf /tmp/deploy_key.pub -E sha256
-
-          echo "=== SSH server diagnostics ==="
-          set +e
-          timeout 15s ssh -vv             -o BatchMode=yes             -o StrictHostKeyChecking=no             -o UserKnownHostsFile=/dev/null             -o ConnectTimeout=10             -p "$SERVER_PORT"             -i /tmp/deploy_key             "$SERVER_USER@$SERVER_HOST"             'echo "AUTH_SUCCESS"; id; echo "HOME=$HOME"; ls -ld ~/.ssh 2>/dev/null || true'
-          rc=$?
-          set -e
-
-          echo "SSH diagnostic exit code: $rc"
-          if [ "$rc" -ne 0 ]; then
-            echo "AUTH_FAILED: SSH authentication failed."
-            echo "Check SERVER_USER and whether this key's public key exists in ~/.ssh/authorized_keys."
-            exit "$rc"
-          fi
-
-      - name: Deploy over SSH
-        if: success()
+      - name: Deploy website and configure Nginx
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -72,17 +34,71 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             set -e
-            echo "SSH connection succeeded."
-            mkdir -p /var/www/111
-            cd /var/www/111
-            if [ ! -d .git ]; then
-              git clone https://github.com/leoleoleo88888/111.git .
+
+            if [ "$(id -u)" -eq 0 ]; then
+              SUDO=""
             else
-              git fetch origin main
-              git reset --hard origin/main
+              SUDO="sudo"
             fi
-            echo "Deployment completed."
+
+            echo "=== Deploy files ==="
+            $SUDO mkdir -p /var/www/111
+            cd /var/www/111
+
+            if [ ! -d .git ]; then
+              $SUDO git clone https://github.com/leoleoleo88888/111.git .
+            else
+              $SUDO git fetch origin main
+              $SUDO git reset --hard origin/main
+            fi
+
+            echo "=== Install Nginx if needed ==="
+            if command -v nginx >/dev/null 2>&1; then
+              echo "Nginx already installed."
+            elif command -v apt-get >/dev/null 2>&1; then
+              $SUDO apt-get update
+              $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+            elif command -v dnf >/dev/null 2>&1; then
+              $SUDO dnf install -y nginx
+            elif command -v yum >/dev/null 2>&1; then
+              $SUDO yum install -y nginx
+            else
+              echo "ERROR: Unsupported Linux package manager."
+              exit 1
+            fi
+
+            echo "=== Configure Nginx ==="
+            $SUDO mkdir -p /var/www/111
+            $SUDO chown -R www-data:www-data /var/www/111 2>/dev/null || true
+            $SUDO chown -R nginx:nginx /var/www/111 2>/dev/null || true
+
+            $SUDO tee /etc/nginx/conf.d/111.conf >/dev/null <<'NGINX'
+            server {
+                listen 80 default_server;
+                listen [::]:80 default_server;
+                server_name _;
+                root /var/www/111;
+                index index.html;
+
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+            }
+            NGINX
+
+            if [ -d /etc/nginx/sites-enabled ]; then
+              $SUDO rm -f /etc/nginx/sites-enabled/default
+            fi
+
+            $SUDO nginx -t
+            $SUDO systemctl enable nginx
+            $SUDO systemctl restart nginx
+
+            echo "=== Verify website locally ==="
+            $SUDO ss -lntp | grep -E ':80[[:space:]]' || true
+            curl -I --max-time 10 http://127.0.0.1/
+            echo "=== Website deployment completed ==="
 
       - name: Deployment summary
         if: success()
-        run: echo "Cloud server deployment completed successfully."
+        run: echo "Website deployed and Nginx configured successfully."
