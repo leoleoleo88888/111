@@ -21,6 +21,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             set -e
+            git config --global --add safe.directory /var/www/111
             cd /var/www/111
             git fetch origin main
             git reset --hard origin/main
