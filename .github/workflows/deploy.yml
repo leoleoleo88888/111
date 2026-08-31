@@ -1,32 +1,27 @@
-name: Deploy MENA ICT Insight Website
+name: Deploy MENA ICT Insight to Cloud Server
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload website
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to 43.173.249.172
+        uses: appleboy/ssh-action@v1.2.2
         with:
-          path: '.'
-
-      - name: Deploy website
-        uses: actions/deploy-pages@v4
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            cd /var/www/111
+            git fetch origin main
+            git reset --hard origin/main
+            systemctl restart nginx
+            echo "Cloud deployment complete"
