@@ -11,10 +11,10 @@ jobs:
     steps:
       - name: Check deployment secrets
         env:
-          SERVER_HOST: \${{ secrets.SERVER_HOST }}
-          SERVER_USER: \${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: \${{ secrets.SERVER_SSH_KEY }}
-          SERVER_PORT: \${{ secrets.SERVER_PORT || 22 }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
         run: |
           set -e
           test -n "$SERVER_HOST" || { echo "ERROR: SERVER_HOST is empty or missing"; exit 1; }
@@ -29,43 +29,37 @@ jobs:
 
       - name: Diagnose SSH authentication
         env:
-          SERVER_HOST: \${{ secrets.SERVER_HOST }}
-          SERVER_USER: \${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: \${{ secrets.SERVER_SSH_KEY }}
-          SERVER_PORT: \${{ secrets.SERVER_PORT || 22 }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$SERVER_SSH_KEY" > /tmp/deploy_key
+          printf '%s
+' "$SERVER_SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
           echo "=== Local key diagnostics ==="
           if ! ssh-keygen -y -f /tmp/deploy_key > /tmp/deploy_key.pub; then
             echo "KEY_FORMAT_ERROR: SERVER_SSH_KEY is not a valid private SSH key."
+            echo "Check that SERVER_SSH_KEY contains the complete private key, including BEGIN/END lines."
             exit 2
           fi
-          echo "Private key is readable and can derive a public key."
+          echo "Private key is valid."
           echo "Derived public key fingerprint:"
           ssh-keygen -lf /tmp/deploy_key.pub -E sha256
 
           echo "=== SSH server diagnostics ==="
           set +e
-          timeout 15s ssh -vv \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
-            -o ConnectTimeout=10 \
-            -p "$SERVER_PORT" \
-            -i /tmp/deploy_key \
-            "$SERVER_USER@$SERVER_HOST" \
-            'echo "AUTH_SUCCESS"; id; echo "HOME=$HOME"; ls -ld ~/.ssh 2>/dev/null || true'
+          timeout 15s ssh -vv             -o BatchMode=yes             -o StrictHostKeyChecking=no             -o UserKnownHostsFile=/dev/null             -o ConnectTimeout=10             -p "$SERVER_PORT"             -i /tmp/deploy_key             "$SERVER_USER@$SERVER_HOST"             'echo "AUTH_SUCCESS"; id; echo "HOME=$HOME"; ls -ld ~/.ssh 2>/dev/null || true'
           rc=$?
           set -e
 
           echo "SSH diagnostic exit code: $rc"
           if [ "$rc" -ne 0 ]; then
             echo "AUTH_FAILED: SSH authentication failed."
-            echo "Likely causes: SERVER_USER is wrong, matching public key is absent from authorized_keys, or sshd rejects public-key authentication."
+            echo "Check SERVER_USER and whether this key's public key exists in ~/.ssh/authorized_keys."
             exit "$rc"
           fi
 
@@ -73,10 +67,10 @@ jobs:
         if: success()
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: \${{ secrets.SERVER_HOST }}
-          username: \${{ secrets.SERVER_USER }}
-          key: \${{ secrets.SERVER_SSH_KEY }}
-          port: \${{ secrets.SERVER_PORT || 22 }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             set -e
             echo "SSH connection succeeded."
